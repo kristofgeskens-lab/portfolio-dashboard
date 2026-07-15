@@ -24,49 +24,80 @@ const PORTFOLIO = [
 
 const TOTAL = 73324.89;
 
+const SIGNAL_CONFIG = {
+  'STRONG BUY':  { color: '#16a34a', bg: '#052e16', label: '⬆⬆ STRONG BUY'  },
+  'BUY':         { color: '#22c55e', bg: '#0f1e0f', label: '⬆ BUY'           },
+  'HOLD':        { color: '#f59e0b', bg: '#1c1506', label: '◆ HOLD'          },
+  'SELL':        { color: '#f97316', bg: '#1c0a02', label: '⬇ SELL'          },
+  'STRONG SELL': { color: '#ef4444', bg: '#1c0505', label: '⬇⬇ STRONG SELL' },
+};
+
 const pColor = v => v === null || v === undefined ? '#475569' : v > 0 ? '#22c55e' : v < 0 ? '#ef4444' : '#94a3b8';
 const pSign  = v => v > 0 ? '+' : '';
 const fmt    = v => v === null || v === undefined ? '—' : `${pSign(v)}${v.toFixed(2)}%`;
 
-function MiniBar({ value }) {
-  if (value === null || value === undefined) return <span style={{ color: '#334155', fontFamily: 'monospace', fontSize: 11 }}>—</span>;
-  const capped = Math.max(-20, Math.min(20, value));
-  const w = Math.abs(capped) / 20 * 28;
-  const pos = value >= 0;
+function SignalBadge({ signal }) {
+  if (!signal) return <span style={{ color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>—</span>;
+  const cfg = SIGNAL_CONFIG[signal] || SIGNAL_CONFIG['HOLD'];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <div style={{ width: 60, display: 'flex', alignItems: 'center' }}>
-        <div style={{ width: 28, display: 'flex', justifyContent: 'flex-end' }}>
-          {!pos && <div style={{ width: w, height: 6, background: '#ef4444', borderRadius: 2 }} />}
-        </div>
-        <div style={{ width: 2, height: 12, background: '#334155', borderRadius: 1, flexShrink: 0 }} />
-        <div style={{ width: 28, display: 'flex', justifyContent: 'flex-start' }}>
-          {pos && <div style={{ width: w, height: 6, background: '#22c55e', borderRadius: 2 }} />}
-        </div>
-      </div>
-      <span style={{ fontFamily: 'monospace', fontSize: 11, color: pColor(value), minWidth: 52 }}>
-        {fmt(value)}
-      </span>
-    </div>
+    <span style={{
+      background: cfg.bg,
+      color: cfg.color,
+      border: `1px solid ${cfg.color}44`,
+      borderRadius: 6,
+      padding: '3px 8px',
+      fontSize: 10,
+      fontFamily: 'monospace',
+      fontWeight: 700,
+      letterSpacing: '0.04em',
+      whiteSpace: 'nowrap',
+    }}>
+      {cfg.label}
+    </span>
   );
 }
 
 function PeriodBadge({ label, value }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 56 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 50 }}>
       <span style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'monospace', marginBottom: 2 }}>{label}</span>
-      <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: pColor(value) }}>{fmt(value)}</span>
+      <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 600, color: pColor(value) }}>{fmt(value)}</span>
+    </div>
+  );
+}
+
+function RSIBar({ rsi }) {
+  if (!rsi) return null;
+  const color = rsi < 30 ? '#22c55e' : rsi > 70 ? '#ef4444' : '#f59e0b';
+  const label = rsi < 30 ? 'Oversold' : rsi > 70 ? 'Overbought' : 'Neutraal';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, height: 4, background: '#1e293b', borderRadius: 2, position: 'relative' }}>
+        <div style={{
+          position: 'absolute', left: 0, top: 0, height: '100%',
+          width: `${rsi}%`, background: color, borderRadius: 2,
+          transition: 'width 0.5s ease',
+        }} />
+        {/* oversold/overbought markers */}
+        <div style={{ position: 'absolute', left: '30%', top: -2, width: 1, height: 8, background: '#334155' }} />
+        <div style={{ position: 'absolute', left: '70%', top: -2, width: 1, height: 8, background: '#334155' }} />
+      </div>
+      <span style={{ fontFamily: 'monospace', fontSize: 10, color, minWidth: 70 }}>
+        RSI {rsi} · {label}
+      </span>
     </div>
   );
 }
 
 export default function Page() {
-  const [prices, setPrices]       = useState({});
-  const [loading, setLoading]     = useState(false);
-  const [updated, setUpdated]     = useState(null);
-  const [expanded, setExpanded]   = useState(null);
-  const [sortBy, setSortBy]       = useState('inception');
-  const [view, setView]           = useState('list'); // 'list' | 'momentum'
+  const [prices, setPrices]     = useState({});
+  const [loading, setLoading]   = useState(false);
+  const [updated, setUpdated]   = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const [sortBy, setSortBy]     = useState('signal');
+  const [filterSig, setFilterSig] = useState(null);
+
+  const SIGNAL_ORDER = { 'STRONG BUY': 0, 'BUY': 1, 'HOLD': 2, 'SELL': 3, 'STRONG SELL': 4 };
 
   const fetchPrices = useCallback(async () => {
     setLoading(true);
@@ -76,7 +107,6 @@ export default function Page() {
       setPrices(json);
       setUpdated(new Date());
     } catch {
-      // silently fail — show stale data
     } finally {
       setLoading(false);
     }
@@ -87,10 +117,13 @@ export default function Page() {
   const rows = PORTFOLIO.map(p => ({
     ...p,
     p: prices[p.symbol] || {},
+    signal: prices[p.symbol]?.signal || null,
+    rsi: prices[p.symbol]?.rsi || null,
     weight: (p.currentValue / TOTAL * 100).toFixed(1),
   }));
 
   const sortFn = (a, b) => {
+    if (sortBy === 'signal')    return (SIGNAL_ORDER[a.signal] ?? 5) - (SIGNAL_ORDER[b.signal] ?? 5);
     if (sortBy === 'inception') return b.returnPct - a.returnPct;
     if (sortBy === 'value')     return b.currentValue - a.currentValue;
     if (sortBy === '1d')        return (b.p['1d'] ?? -999) - (a.p['1d'] ?? -999);
@@ -99,11 +132,29 @@ export default function Page() {
     return 0;
   };
 
-  const stocks = rows.filter(r => !r.isETF).sort(sortFn);
-  const etfs   = rows.filter(r => r.isETF).sort(sortFn);
+  const filterFn = r => !filterSig || r.signal === filterSig;
+
+  const stocks = rows.filter(r => !r.isETF).filter(filterFn).sort(sortFn);
+  const etfs   = rows.filter(r =>  r.isETF).filter(filterFn).sort(sortFn);
+
+  const signalCounts = {};
+  rows.forEach(r => { if (r.signal) signalCounts[r.signal] = (signalCounts[r.signal] || 0) + 1; });
 
   const winners = PORTFOLIO.filter(p => p.returnPct > 0).length;
   const losers  = PORTFOLIO.filter(p => p.returnPct < 0).length;
+
+  const btnStyle = (active) => ({
+    background: active ? '#1e3a5f' : '#111827',
+    color: active ? '#60a5fa' : '#64748b',
+    border: `1px solid ${active ? '#2563eb44' : '#1e293b'}`,
+    borderRadius: 6,
+    padding: '5px 10px',
+    fontSize: 11,
+    fontFamily: 'monospace',
+    cursor: 'pointer',
+    letterSpacing: '0.04em',
+    whiteSpace: 'nowrap',
+  });
 
   return (
     <div style={{
@@ -125,56 +176,62 @@ export default function Page() {
         <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', color: '#f1f5f9' }}>
           €{TOTAL.toLocaleString('nl-BE', { minimumFractionDigits: 2 })}
         </div>
-        <div style={{ fontSize: 13, color: '#22c55e', fontFamily: 'monospace', marginTop: 4 }}>
+        <div style={{ fontSize: 13, color: '#ef4444', fontFamily: 'monospace', marginTop: 4 }}>
           -€87,84 vandaag · -0,12%
         </div>
 
-        {/* Stats row */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
           {[
             { label: 'Posities', value: PORTFOLIO.length, color: '#f1f5f9' },
             { label: 'Winnaars', value: winners, color: '#22c55e' },
             { label: 'Verliezers', value: losers, color: '#ef4444' },
+            { label: 'Bijgewerkt', value: updated ? updated.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '—', color: '#94a3b8' },
           ].map(s => (
             <div key={s.label} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, padding: '8px 14px' }}>
               <div style={{ fontSize: 9, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'monospace' }}>{s.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: s.color, fontFamily: 'monospace' }}>{s.value}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: s.color, fontFamily: 'monospace' }}>{s.value}</div>
             </div>
           ))}
-          <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, padding: '8px 14px', flex: 1 }}>
-            <div style={{ fontSize: 9, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'monospace' }}>Bijgewerkt</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace', marginTop: 4 }}>
-              {updated ? updated.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '—'}
-            </div>
-          </div>
         </div>
+
+        {/* Signal summary */}
+        {Object.keys(signalCounts).length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+            {Object.entries(SIGNAL_CONFIG).map(([sig, cfg]) => signalCounts[sig] ? (
+              <button
+                key={sig}
+                onClick={() => setFilterSig(filterSig === sig ? null : sig)}
+                style={{
+                  background: filterSig === sig ? cfg.bg : '#0f172a',
+                  color: cfg.color,
+                  border: `1px solid ${cfg.color}${filterSig === sig ? '88' : '33'}`,
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {signalCounts[sig]}× {sig}
+              </button>
+            ) : null)}
+          </div>
+        )}
       </div>
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', gap: 8 }}>
+      {/* Sort toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', gap: 8, overflowX: 'auto' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {[
+            { key: 'signal',    label: 'Signaal' },
             { key: 'inception', label: 'Aankoop' },
             { key: '1d',        label: '1D' },
             { key: '1m',        label: '1M' },
             { key: '6m',        label: '6M' },
             { key: 'value',     label: 'Waarde' },
           ].map(s => (
-            <button
-              key={s.key}
-              onClick={() => setSortBy(s.key)}
-              style={{
-                background: sortBy === s.key ? '#1e3a5f' : '#111827',
-                color: sortBy === s.key ? '#60a5fa' : '#64748b',
-                border: `1px solid ${sortBy === s.key ? '#2563eb44' : '#1e293b'}`,
-                borderRadius: 6,
-                padding: '5px 10px',
-                fontSize: 11,
-                fontFamily: 'monospace',
-                cursor: 'pointer',
-                letterSpacing: '0.04em',
-              }}
-            >
+            <button key={s.key} onClick={() => setSortBy(s.key)} style={btnStyle(sortBy === s.key)}>
               {s.label}
             </button>
           ))}
@@ -182,16 +239,7 @@ export default function Page() {
         <button
           onClick={fetchPrices}
           disabled={loading}
-          style={{
-            background: loading ? '#0f172a' : '#1e3a5f',
-            color: loading ? '#334155' : '#93c5fd',
-            border: '1px solid #2563eb44',
-            borderRadius: 6,
-            padding: '5px 12px',
-            fontSize: 11,
-            fontFamily: 'monospace',
-            cursor: loading ? 'not-allowed' : 'pointer',
-          }}
+          style={{ ...btnStyle(false), color: loading ? '#334155' : '#93c5fd', flexShrink: 0 }}
         >
           {loading ? '...' : '⟳'}
         </button>
@@ -199,35 +247,35 @@ export default function Page() {
 
       {/* List */}
       {[
-        { label: `Aandelen (${stocks.length})`, items: stocks },
-        { label: `ETF's (${etfs.length})`,      items: etfs   },
-      ].map(section => (
+        { label: `Aandelen`, items: stocks },
+        { label: `ETF's`,    items: etfs   },
+      ].map(section => section.items.length === 0 ? null : (
         <div key={section.label}>
           <div style={{ padding: '8px 16px 4px', fontSize: 10, color: '#334155', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'monospace' }}>
-            {section.label}
+            {section.label} ({section.items.length})
           </div>
           {section.items.map(row => (
             <div key={row.symbol}>
-              {/* Main row */}
               <div
                 onClick={() => setExpanded(expanded === row.symbol ? null : row.symbol)}
                 style={{
-                  padding: '12px 16px',
+                  padding: '14px 16px',
                   borderBottom: '1px solid #111827',
                   background: expanded === row.symbol ? '#111827' : 'transparent',
                   cursor: 'pointer',
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
+                {/* Top row: name + value */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div>
+                  <div style={{ flex: 1, paddingRight: 8 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: '#f1f5f9' }}>{row.name}</div>
                     <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#475569', marginTop: 2 }}>
                       {row.symbol} · {row.shares} st. · {row.weight}%
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: 14, color: '#cbd5e1', fontWeight: 500 }}>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#cbd5e1', fontWeight: 500 }}>
                       €{row.currentValue.toLocaleString('nl-BE', { minimumFractionDigits: 2 })}
                     </div>
                     <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: pColor(row.returnPct), marginTop: 2 }}>
@@ -236,14 +284,19 @@ export default function Page() {
                   </div>
                 </div>
 
-                {/* Period bars */}
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {/* Signal badge */}
+                <div style={{ marginBottom: 10 }}>
+                  <SignalBadge signal={row.signal} />
+                </div>
+
+                {/* Period badges */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {[
-                    { label: '1D', key: '1d' },
-                    { label: '7D', key: '7d' },
-                    { label: '1M', key: '1m' },
-                    { label: '3M', key: '3m' },
-                    { label: '6M', key: '6m' },
+                    { label: '1D',  key: '1d'  },
+                    { label: '7D',  key: '7d'  },
+                    { label: '1M',  key: '1m'  },
+                    { label: '3M',  key: '3m'  },
+                    { label: '6M',  key: '6m'  },
                   ].map(p => (
                     <PeriodBadge key={p.key} label={p.label} value={row.p[p.key]} />
                   ))}
@@ -255,21 +308,27 @@ export default function Page() {
                 <div style={{
                   background: '#0d1117',
                   borderBottom: '1px solid #1e293b',
-                  padding: '12px 16px',
-                  display: 'flex',
-                  gap: 20,
-                  flexWrap: 'wrap',
+                  padding: '14px 16px',
                 }}>
-                  {[
-                    { label: 'Munt', value: row.currency },
-                    { label: 'Aantal', value: `${row.shares} st.` },
-                    { label: 'Gewicht', value: `${row.weight}%` },
-                  ].map(d => (
-                    <div key={d.label}>
-                      <div style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'monospace' }}>{d.label}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#94a3b8', marginTop: 3 }}>{d.value}</div>
+                  {row.rsi && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'monospace', marginBottom: 6 }}>RSI (14)</div>
+                      <RSIBar rsi={row.rsi} />
                     </div>
-                  ))}
+                  )}
+                  <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Munt',   value: row.currency },
+                      { label: 'Aantal', value: `${row.shares} st.` },
+                      { label: 'Gewicht', value: `${row.weight}%` },
+                      { label: 'Waarde', value: `€${row.currentValue.toLocaleString('nl-BE', { minimumFractionDigits: 2 })}` },
+                    ].map(d => (
+                      <div key={d.label}>
+                        <div style={{ fontSize: 9, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'monospace' }}>{d.label}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#94a3b8', marginTop: 3 }}>{d.value}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -278,7 +337,7 @@ export default function Page() {
       ))}
 
       <div style={{ textAlign: 'center', padding: '20px 0 0', fontFamily: 'monospace', fontSize: 10, color: '#1e293b' }}>
-        Data via Yahoo Finance · Geen beleggingsadvies
+        Data via Yahoo Finance · RSI-14 · Geen beleggingsadvies
       </div>
     </div>
   );
