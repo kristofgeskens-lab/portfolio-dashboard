@@ -20,15 +20,54 @@ const PORTFOLIO = [
   { Symbol:'VBTC.DE',  Name:'VanEck Bitcoin ETN',     Shares:50,  'Buy Price':30.96,   Currency:'EUR', Notes:'ETF' },
 ];
 
-// Watchlist - voeg hier symbolen toe die je wil volgen
+// Watchlist - Kristof's persoonlijke watchlist
 const WATCHLIST = [
-  { Symbol:'NVDA',  Name:'Nvidia Corporation',    Currency:'USD', Notes:'AI chips' },
-  { Symbol:'PLTR',  Name:'Palantir Technologies', Currency:'USD', Notes:'AI software' },
-  { Symbol:'AVGO',  Name:'Broadcom Inc',          Currency:'USD', Notes:'AI infra' },
-  { Symbol:'META',  Name:'Meta Platforms',        Currency:'USD', Notes:'AI + social' },
-  { Symbol:'NBIS',  Name:'Nebius Group',          Currency:'USD', Notes:'AI cloud' },
-  { Symbol:'ADYEN', Name:'Adyen N.V.',            Currency:'EUR', Notes:'Fintech' },
-  { Symbol:'BN',    Name:'Brookfield Corp',       Currency:'USD', Notes:'Alternatief' },
+  { Symbol:'ADBE',    Name:'Adobe Inc',                   Currency:'USD', Notes:'Software' },
+  { Symbol:'ADYEN',   Name:'Adyen N.V.',                  Currency:'EUR', Notes:'Fintech' },
+  { Symbol:'GOOGL',   Name:'Alphabet Inc',                Currency:'USD', Notes:'Tech' },
+  { Symbol:'ALRM',    Name:'Alarm.com Holdings',          Currency:'USD', Notes:'Tech' },
+  { Symbol:'AMP',     Name:'Ameriprise Financial',        Currency:'USD', Notes:'Financials' },
+  { Symbol:'ADP',     Name:'Automatic Data Processing',   Currency:'USD', Notes:'Software' },
+  { Symbol:'BN',      Name:'Brookfield Corp',             Currency:'USD', Notes:'Financials' },
+  { Symbol:'BRO',     Name:'Brown & Brown Inc',           Currency:'USD', Notes:'Insurance' },
+  { Symbol:'COLM',    Name:'Columbia Sportswear',         Currency:'USD', Notes:'Consumer' },
+  { Symbol:'CMG',     Name:'Chipotle Mexican Grill',      Currency:'USD', Notes:'Consumer' },
+  { Symbol:'CSU',     Name:'Constellation Software',      Currency:'CAD', Notes:'Software' },
+  { Symbol:'CPRT',    Name:'Copart Inc',                  Currency:'USD', Notes:'Services' },
+  { Symbol:'DECK',    Name:'Deckers Outdoor',             Currency:'USD', Notes:'Consumer' },
+  { Symbol:'DPZ',     Name:'Dominos Pizza',               Currency:'USD', Notes:'Consumer' },
+  { Symbol:'ESQ',     Name:'Esquire Financial Holdings',  Currency:'USD', Notes:'Financials' },
+  { Symbol:'EVO',     Name:'Evolution AB',                Currency:'SEK', Notes:'Gaming' },
+  { Symbol:'FFH',     Name:'Fairfax Financial',           Currency:'CAD', Notes:'Financials' },
+  { Symbol:'FICO',    Name:'Fair Isaac Corporation',      Currency:'USD', Notes:'Software' },
+  { Symbol:'FTNT',    Name:'Fortinet Inc',                Currency:'USD', Notes:'Cybersecurity' },
+  { Symbol:'IT',      Name:'Gartner Inc',                 Currency:'USD', Notes:'Research' },
+  { Symbol:'HLNE',    Name:'Hamilton Lane Inc',           Currency:'USD', Notes:'Financials' },
+  { Symbol:'ICE',     Name:'Intercontinental Exchange',   Currency:'USD', Notes:'Financials' },
+  { Symbol:'IPAR',    Name:'Inter Parfums Inc',           Currency:'USD', Notes:'Consumer' },
+  { Symbol:'KNSL',    Name:'Kinsale Capital Group',       Currency:'USD', Notes:'Insurance' },
+  { Symbol:'KKR',     Name:'KKR & Co Inc',                Currency:'USD', Notes:'Financials' },
+  { Symbol:'LULU',    Name:'Lululemon Athletica',         Currency:'USD', Notes:'Consumer' },
+  { Symbol:'MKL',     Name:'Markel Group',                Currency:'USD', Notes:'Insurance' },
+  { Symbol:'MA',      Name:'Mastercard Inc',              Currency:'USD', Notes:'Financials' },
+  { Symbol:'MELI',    Name:'MercadoLibre Inc',            Currency:'USD', Notes:'E-commerce' },
+  { Symbol:'MCO',     Name:'Moodys Corporation',          Currency:'USD', Notes:'Financials' },
+  { Symbol:'MSCI',    Name:'MSCI Inc',                    Currency:'USD', Notes:'Financials' },
+  { Symbol:'NSSC',    Name:'NAPCO Security Technologies', Currency:'USD', Notes:'Tech' },
+  { Symbol:'POOL',    Name:'Pool Corporation',            Currency:'USD', Notes:'Consumer' },
+  { Symbol:'QLYS',    Name:'Qualys Inc',                  Currency:'USD', Notes:'Cybersecurity' },
+  { Symbol:'RH',      Name:'RH (Restoration Hardware)',   Currency:'USD', Notes:'Consumer' },
+  { Symbol:'SPGI',    Name:'S&P Global Inc',              Currency:'USD', Notes:'Financials' },
+  { Symbol:'SSNC',    Name:'SS&C Technologies',           Currency:'USD', Notes:'Software' },
+  { Symbol:'V',       Name:'Visa Inc',                    Currency:'USD', Notes:'Financials' },
+  { Symbol:'XPEL',    Name:'XPEL Inc',                    Currency:'USD', Notes:'Consumer' },
+  { Symbol:'ZTS',     Name:'Zoetis Inc',                  Currency:'USD', Notes:'Healthcare' },
+  { Symbol:'FISV',    Name:'Fiserv Inc',                  Currency:'USD', Notes:'Fintech' },
+  { Symbol:'MRVL',    Name:'Marvell Technology',          Currency:'USD', Notes:'Semiconductors' },
+  { Symbol:'NVDA',    Name:'Nvidia Corporation',          Currency:'USD', Notes:'AI chips' },
+  { Symbol:'NBIS',    Name:'Nebius Group',                Currency:'USD', Notes:'AI cloud' },
+  { Symbol:'NFLX',    Name:'Netflix Inc',                 Currency:'USD', Notes:'Streaming' },
+  { Symbol:'IONQ',    Name:'IonQ Inc',                    Currency:'USD', Notes:'Quantum' },
 ];
 
 const YAHOO_SYMBOLS = {
@@ -115,3 +154,4 @@ export async function GET() {
   }));
   return Response.json({ portfolio:PORTFOLIO, watchlist:WATCHLIST, prices });
 }
+
