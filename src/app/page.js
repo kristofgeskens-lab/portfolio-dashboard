@@ -94,38 +94,34 @@ function Week52Bar({ pos52, high52, low52 }) {
 }
 
 function AIConclusion({ symbol, name, data, returnPct, isWatchlist, reason }) {
-  const [text, setText]       = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!data?.signal) return;
-    setLoading(true); setText(null);
-    const context = reason
-      ? `Nieuwscatalyst: "${reason}"`
-      : isWatchlist ? 'Dit is een watchlist positie.' : `Rendement sinds aankoop: ${returnPct}%.`;
-    const prompt = `Je bent een beknopte portfolioadviseur voor een Belgische belegger. Geef voor ${name} (${symbol}) EXACT 2 zinnen in het Nederlands.
-Metrics: Signaal: ${data.signal}, RSI: ${data.rsi??'—'}, 1M: ${data['1m']??'—'}%, 6M: ${data['6m']??'—'}%, vs 50D MA: ${data.ma50&&data.price?(data.price>data.ma50?'boven':'onder'):'—'}, vs 200D MA: ${data.ma200&&data.price?(data.price>data.ma200?'boven':'onder'):'—'}, 52W: ${data.pos52??'—'}%. ${context}
-Zin 1: Technische situatie${reason?' gecombineerd met het nieuwscatalyst':''}.
-Zin 2: ${reason?'Instapmoment?':isWatchlist?'Instapmoment?':'Bijhouden/bijkopen/afbouwen/verkopen met reden.'}
-Geen disclaimers. Start direct.`;
-
-    fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, messages:[{role:'user',content:prompt}] }),
-    })
-      .then(r=>r.json())
-      .then(d=>setText(d.content?.find(b=>b.type==='text')?.text||'Kon geen conclusie genereren.'))
-      .catch(()=>setText('Kon geen conclusie genereren.'))
-      .finally(()=>setLoading(false));
-  }, [symbol, data?.signal]);
-
   if (!data?.signal) return null;
+
+  // Statische analyse op basis van metrics - geen API nodig
+  const cfg = SIGNAL_CONFIG[data.signal] || SIGNAL_CONFIG['HOLD'];
+  const rsiZone = !data.rsi ? '' : data.rsi < 30 ? 'RSI oversold — mogelijke koopkans.' : data.rsi > 70 ? 'RSI overbought — voorzichtigheid geboden.' : 'RSI neutraal.';
+  const maStatus = data.ma50 && data.price
+    ? (data.price > data.ma50 ? 'Koers boven 50D MA' : 'Koers onder 50D MA')
+    + (data.ma200 ? (data.price > data.ma200 ? ' en boven 200D MA — bullish trend.' : ' maar onder 200D MA — zwakke trend.') : '.')
+    : '';
+  const cross = data.ma50 && data.ma200
+    ? data.ma50 > data.ma200 ? ' Golden Cross actief.' : ' Death Cross actief.'
+    : '';
+  const pos = data.pos52 != null
+    ? data.pos52 > 75 ? ' Dicht bij 52-weeks high.' : data.pos52 < 25 ? ' Dicht bij 52-weeks low — mogelijke instapzone.' : ''
+    : '';
+  const advies = data.signal === 'STRONG BUY' ? (isWatchlist||reason?'Technisch sterk instapmoment.':'Positie bijhouden of uitbreiden.') :
+                 data.signal === 'BUY'         ? (isWatchlist||reason?'Gunstig instapmoment.':'Positie bijhouden.') :
+                 data.signal === 'HOLD'        ? (isWatchlist||reason?'Afwachten op duidelijker signaal.':'Positie behouden, geen actie vereist.') :
+                 data.signal === 'SELL'        ? (isWatchlist||reason?'Nog niet instappen.':'Overweeg deels af te bouwen.') :
+                 (isWatchlist||reason?'Niet instappen, momentum negatief.':'Overweeg positie te verkopen.');
+
   return (
     <div style={{ background:'#0a1628', border:'1px solid #1e3a5f', borderRadius:8, padding:'12px 14px', marginTop:12 }}>
-      <div style={{ fontSize:9, color:'#3b82f6', textTransform:'uppercase', letterSpacing:'0.1em', fontFamily:'monospace', marginBottom:8 }}>🤖 AI Conclusie</div>
-      {loading
-        ? <div style={{ color:'#334155', fontSize:12, fontFamily:'monospace', animation:'pulse 1.5s infinite' }}>Analyseren...</div>
-        : <div style={{ color:'#cbd5e1', fontSize:13, lineHeight:1.6 }}>{text}</div>}
+      <div style={{ fontSize:9, color:'#3b82f6', textTransform:'uppercase', letterSpacing:'0.1em', fontFamily:'monospace', marginBottom:8 }}>📊 Technische Analyse</div>
+      <div style={{ color:'#cbd5e1', fontSize:13, lineHeight:1.7 }}>
+        {maStatus}{cross}{pos} {rsiZone}
+        <span style={{ color:cfg.color, fontWeight:600 }}> {advies}</span>
+      </div>
     </div>
   );
 }
@@ -399,3 +395,4 @@ export default function Page() {
     </div>
   );
 }
+
