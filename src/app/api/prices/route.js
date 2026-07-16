@@ -4,9 +4,34 @@ const YAHOO_SYMBOLS = {
   'AMZN':'AMZN','INVEB.ST':'INVE-B.ST','WVE':'WVE','SOF.BR':'SOF.BR',
   'SMR':'SMR','EIMI.L':'EIMI.L','VBTC.DE':'VBTC.DE',
   'NVDA':'NVDA','NBIS':'NBIS','PLTR':'PLTR','AVGO':'AVGO','META':'META',
+  // Watchlist tickers (Ticker column)
+  'ADBE':'ADBE','ADYEN':'ADYEN.AS','GOOGL':'GOOGL','ALRM':'ALRM',
+  'AMP':'AMP','ADP':'ADP','BRO':'BRO','COLM':'COLM','CMG':'CMG',
+  'CSU':'CSU.TO','CPRT':'CPRT','DECK':'DECK','DPZ':'DPZ','ESQ':'ESQ',
+  'EVO':'EVO.ST','FFH':'FFH.TO','FICO':'FICO','FTNT':'FTNT','IT':'IT',
 };
 
 const SHEET_ID = '1wpm6L5V8QTfTdOLrfizauLh3ik-YB6OF5JAjfdBNUcs';
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+      else { inQuotes = !inQuotes; }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
 
 async function fetchSheet(tab) {
   try {
@@ -17,20 +42,26 @@ async function fetchSheet(tab) {
     if (!text || text.trim().length === 0) return [];
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
-    const headers = lines[0].replace(/"/g, '').split(',').map(h => h.trim());
-    const rows = lines.slice(1).map(line => {
-      const vals = [];
-      let current = '', inQuotes = false;
-      for (const char of line) {
-        if (char === '"') { inQuotes = !inQuotes; }
-        else if (char === ',' && !inQuotes) { vals.push(current.trim()); current = ''; }
-        else { current += char; }
-      }
-      vals.push(current.trim());
+
+    const headers = parseCSVLine(lines[0]).map(h => h.replace(/"/g,'').trim());
+    console.log(`Sheet "${tab}" headers:`, headers);
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = parseCSVLine(lines[i]);
       const obj = {};
-      headers.forEach((h, i) => { obj[h] = (vals[i] || '').replace(/^"|"$/g, '').trim(); });
-      return obj;
-    }).filter(r => r.Symbol && r.Symbol.length > 0);
+      headers.forEach((h, idx) => {
+        obj[h] = (vals[idx] || '').replace(/^"|"$/g, '').trim();
+      });
+
+      // Normalize: support both Portfolio (Symbol) and Watchlist (Ticker/Company) formats
+      if (!obj.Symbol && obj.Ticker) obj.Symbol = obj.Ticker;
+      if (!obj.Name && obj.Company) obj.Name = obj.Company;
+      if (!obj.Notes && obj.Sector) obj.Notes = obj.Sector;
+
+      if (obj.Symbol && obj.Symbol.length > 0) rows.push(obj);
+    }
+    console.log(`Sheet "${tab}": ${rows.length} rows parsed`);
     return rows;
   } catch (e) {
     console.error('fetchSheet error:', e);
@@ -83,34 +114,34 @@ async function fetchYahoo(symbol) {
   } catch { return null; }
 }
 
-function calcRSI(closes,period=14) {
-  if(closes.length<period+1) return null;
-  const recent=closes.slice(-period-1);
-  let gains=0,losses=0;
-  for(let i=1;i<recent.length;i++){const d=recent[i]-recent[i-1];if(d>0)gains+=d;else losses+=Math.abs(d);}
-  const ag=gains/period,al=losses/period;
-  if(al===0) return 100;
-  return +(100-100/(1+ag/al)).toFixed(1);
+function calcRSI(closes,period=14){
+  if(closes.length<period+1)return null;
+  const r=closes.slice(-period-1);
+  let g=0,l=0;
+  for(let i=1;i<r.length;i++){const d=r[i]-r[i-1];if(d>0)g+=d;else l+=Math.abs(d);}
+  const ag=g/period,al=l/period;
+  if(al===0)return 100;
+  return+(100-100/(1+ag/al)).toFixed(1);
 }
 
 function calcSignal({d1,d7,d22,d66,d126,rsi,ma50,ma200,last}){
-  let score=0,factors=0;
-  if(d1!=null){score+=d1>1?1:d1<-1?-1:0;factors++;}
-  if(d7!=null){score+=d7>3?2:d7<-3?-2:d7>0?.5:-.5;factors+=2;}
-  if(d22!=null){score+=d22>5?3:d22<-5?-3:d22>0?1:-1;factors+=3;}
-  if(d66!=null){score+=d66>10?3:d66<-10?-3:d66>0?1:-1;factors+=3;}
-  if(d126!=null){score+=d126>15?3:d126<-15?-3:d126>0?1:-1;factors+=3;}
-  if(rsi!=null){score+=rsi<30?2:rsi>70?-2:rsi<45?1:rsi>55?-1:0;factors+=2;}
-  if(ma50&&last){score+=last>ma50?1:-1;factors++;}
-  if(ma200&&last){score+=last>ma200?2:-2;factors+=2;}
-  const allP=[d7,d22,d66,d126].filter(v=>v!=null);
-  if(allP.length>=3&&allP.every(v=>v>0))score+=2;
-  if(allP.length>=3&&allP.every(v=>v<0))score-=2;
-  const norm=factors>0?score/factors:0;
-  if(norm>=.5) return 'STRONG BUY';
-  if(norm>=.2) return 'BUY';
-  if(norm>=-.2)return 'HOLD';
-  if(norm>=-.5)return 'SELL';
+  let s=0,f=0;
+  if(d1!=null){s+=d1>1?1:d1<-1?-1:0;f++;}
+  if(d7!=null){s+=d7>3?2:d7<-3?-2:d7>0?.5:-.5;f+=2;}
+  if(d22!=null){s+=d22>5?3:d22<-5?-3:d22>0?1:-1;f+=3;}
+  if(d66!=null){s+=d66>10?3:d66<-10?-3:d66>0?1:-1;f+=3;}
+  if(d126!=null){s+=d126>15?3:d126<-15?-3:d126>0?1:-1;f+=3;}
+  if(rsi!=null){s+=rsi<30?2:rsi>70?-2:rsi<45?1:rsi>55?-1:0;f+=2;}
+  if(ma50&&last){s+=last>ma50?1:-1;f++;}
+  if(ma200&&last){s+=last>ma200?2:-2;f+=2;}
+  const ap=[d7,d22,d66,d126].filter(v=>v!=null);
+  if(ap.length>=3&&ap.every(v=>v>0))s+=2;
+  if(ap.length>=3&&ap.every(v=>v<0))s-=2;
+  const n=f>0?s/f:0;
+  if(n>=.5)return 'STRONG BUY';
+  if(n>=.2)return 'BUY';
+  if(n>=-.2)return 'HOLD';
+  if(n>=-.5)return 'SELL';
   return 'STRONG SELL';
 }
 
@@ -120,7 +151,6 @@ export async function GET() {
     fetchSheet('Watchlist'),
   ]);
 
-  // Always arrays, never null
   const portfolio = Array.isArray(portfolioRows) ? portfolioRows : [];
   const watchlist = Array.isArray(watchlistRows) ? watchlistRows : [];
 
